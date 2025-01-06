@@ -49,6 +49,7 @@ Purpose: compiler-specific macro definitions.
 
 
 #include "tdkbasedefs.h"
+#include "tdkmemalloc.h"
 
 template <typename TElem, typename TMemAlloc>
 class tdk_podarray
@@ -103,7 +104,7 @@ public:
 			}
 		}
 
-		TElem* pNewElem = m_pData + sizeof(TElem) * m_nCount;
+		TElem* pNewElem = m_pData + m_nCount;
 		if (pNewElem)
 			*pNewElem = val;
 		++m_nCount;
@@ -118,8 +119,8 @@ public:
 	} 
 
 	template<typename EqPred>
-	size_type find(size_type startIdx = 0, size_type endIdx = m_nCount,
-		const TElem& val, const EqPred& pred) const
+	size_type find(const TElem& val, const EqPred& pred,
+		size_type startIdx = 0, size_type endIdx = m_nCount) const
 	{
 		if (endIdx > m_nCount)
 			endIdx = m_nCount;
@@ -168,7 +169,7 @@ public:
 private:
 	tdk_u32 resize_memory(size_type nNewCap)
 	{
-		TMemAlloc* pMemAlloc = TMemAlloc::instance();
+		tdk_imemalloc* pMemAlloc = TMemAlloc::instance();
 		//TDK_ASSERT(pMemAlloc);
     
 		size_type nReqBytes = sizeof(TElem) * nNewCap;
