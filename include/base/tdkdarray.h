@@ -48,103 +48,88 @@ Purpose: dynamic array.
 #define TDK_DARRAY_H
 
 
-#include "tdkbasedefs.h"
-#include "tdkmemalloc.h"
+#include "base/tdkmemalloc.h"
+#include "base/tdkmemutl.h"
 
-template <typename TElem, typename TMemAlloc, typename TUtil>
+#include <memory>
+#include <cassert>
+
+template <typename T, typename Allocator = tdk_allocator<T>>
 class tdk_darray
 {
+	using AllocatorForT = typename std::allocator_traits<Allocator>::template rebind_alloc<T>;
+	using AllocatorTraitsForT = std::allocator_traits<AllocatorForT>;
 public:
-	typedef tdk_size size_type;
-	typedef TElem* iterator;
+	using size_type = tdk_size;
+	using difference_type = tdk_diff;
 
-	
+	using value_type = T;
+	using allocator_type = Allocator;
+		
+	using reference = value_type&;
+	using const_reference = const value_type&;
+	using pointer = typename std::allocator_traits<Allocator>::pointer;
+	using const_pointer = typename std::allocator_traits<Allocator>::const_pointer;
+	using iterator = pointer;
+	using const_iterator = const_pointer;
+	using reverse_iterator = std::reverse_iterator<iterator>;
+	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-	tdk_darray()
-		: m_pData(TDK_NULL)
-		, m_nCount(0)
-		, m_nCapacity(0)
-	{
-
-	}
+	tdk_darray() = default;
 
 	~tdk_darray()
 	{
-		clear();
 		resize_memory(0);
 	}
 
 	void clear()
 	{
-		for (size_type i = 0; i < m_nCount; ++i)
-		{
-			TUtil::destroy(&m_pData[i]);
-		}
-		m_nCount = 0;
+		destroy_all(0);
 	}
 
-	tdk_u32 grow(size_type nGrowBy = 1)
+	tdk_ret grow(size_type nGrowBy = 1, tdk_err* pErrorCode = nullptr)
 	{
-		tdk_u32 retVal = grow_memory(nGrowBy);
-		if (kTDK_OK != retVal)
+		tdk_ret retVal = grow_memory(nGrowBy, pErrorCode);
+		if (retVal != kTDK_OK)
 		{
 			return retVal;
 		}
 
-		size_type nNewCount = m_nCount + nGrowBy;
-		for (size_type i = m_nCount; i < nNewCount; ++i)
-		{
-			TUtil::construct(m_pData + i);
-		}
-		m_nCount = nNewCount;
+		tdk_uninitialized_fill_n(m_pData + m_nCount, nGrowBy, T());
+		m_nCount = m_nCount + nGrowBy;
 		return kTDK_OK;
 	}
 
-	tdk_u32 push_back(const TElem& val)
+	tdk_ret push_back(const T& val, tdk_err* pErrorCode = nullptr)
 	{
-		tdk_u32 retVal = grow_memory(1);
-		if (kTDK_OK != retVal)
+		tdk_ret retVal = grow_memory(1, pErrorCode);
+		if (retVal != kTDK_OK)
 		{
 			return retVal;
 		}
-		TUtil::copy_construct(m_pData + m_nCount, val);
+		tdk_uninitialized_copy_n(std::addressof(val), 1, m_pData + m_nCount);
 		++m_nCount;
 		return kTDK_OK;
 	}
 
-	tdk_u32 reserve(size_type nNewCap)
+	tdk_ret reserve(size_type nNewCap, tdk_err* pErrorCode = nullptr)
 	{
 		if (nNewCap <= m_nCapacity)
 			return kTDK_OK;
-		return resize_memory(nNewCap);
+		return resize_memory(nNewCap, pErrorCode);
 	} 
 
-	template<typename EqPred>
-	size_type find(const TElem& val, const EqPred& pred,
-		size_type startIdx = 0, size_type endIdx = m_nCount) const
-	{
-		if (endIdx > m_nCount)
-			endIdx = m_nCount;
-
-		for (size_type idx = startIdx; idx < endIdx; ++idx)
-		{
-			if (pred(m_pData[idx], val))
-				return idx;
-		}
-		return m_nCount;
-	}
-
-	TElem* at(size_type idx)
+	T* at(size_type idx)
 	{
 		if (idx >= m_nCount)
-			return TDK_NULL;
+			return nullptr;
 		return m_pData + idx;
 	}
 
-	const TElem* at(size_type idx) const
+	const T* at(size_type idx) const
 	{
 		if (idx >= m_nCount)
-			return TDK_NULL;
+			return nullptr;
 		return m_pData + idx;
 	}
 
@@ -153,7 +138,17 @@ public:
 		return m_pData;
 	}
 
+	const_iterator begin() const
+	{
+		return m_pData;
+	}
+
 	iterator end()
+	{
+		return m_pData + m_nCount;
+	}
+
+	const_iterator end() const
 	{
 		return m_pData + m_nCount;
 	}
@@ -167,17 +162,81 @@ public:
 	{
 		return m_nCapacity;
 	}
+
+	allocator_type get_allocator() const
+	{
+		return allocator(*get_allocator_for_T());
+	}
 private:
-	tdk_u32 grow_memory(size_type nGrowBy)
+
+	template<typename A>
+	std::enable_if_t<tdk_is_static_creatable<A>::value, bool>
+	is_allocator_static_creatable(A* pUnused)
+	{
+		TDK_UNUSED(pUnused);
+		return true;
+	}
+
+	bool is_allocator_static_creatable(...)
+	{
+		return false;
+	}
+
+	template<typename A>
+	std::enable_if_t<tdk_is_static_creatable<A>::value, A*>
+	create_allocator_on_static_memory(void* pAllocatorMemory, A* pUnused)
+	{
+		TDK_UNUSED(pUnused);
+		return ::new(pAllocatorMemory) A();
+	}
+
+	AllocatorForT* create_allocator_on_static_memory(...)
+	{
+		return nullptr;
+	}
+
+	static void* get_allocator_static_memory()
+	{
+		static tdk_byte mem[sizeof(AllocatorForT)];
+		return mem;
+	}
+
+	AllocatorForT* get_allocator_for_T()
+	{
+		AllocatorForT* pResult{};
+		if (is_allocator_static_creatable(pResult))
+		{
+			pResult = create_allocator_on_static_memory(
+				get_allocator_static_memory(),
+				pResult);
+		}
+		
+		assert(pResult);
+		return pResult;
+	}
+		
+	size_type suggest_capacity(size_type nNewCount, size_type nCurrentCap)
+	{
+		nCurrentCap = tdk_max(nCurrentCap, size_type(4));
+
+		while (nCurrentCap < nNewCount)
+		{
+			nCurrentCap += nCurrentCap >> 1;
+		}
+
+		return nCurrentCap;
+	}
+
+	tdk_ret grow_memory(size_type nGrowBy, tdk_err* pErrorCode)
 	{
 		size_type nNewCount = m_nCount + nGrowBy;
 
 		if (nNewCount > m_nCapacity)
 		{
-			size_type nNewCap = TUtil::grow_capacity(nNewCount, m_nCapacity);
+			size_type nNewCap = suggest_capacity(nNewCount, m_nCapacity);
 			
-			tdk_u32 retVal = resize_memory(nNewCap);
-			if (kTDK_OK != retVal)
+			tdk_ret retVal = resize_memory(nNewCap, pErrorCode);
+			if (retVal != kTDK_OK)
 			{
 				return retVal;
 			}
@@ -186,58 +245,71 @@ private:
 		return kTDK_OK;
 	}
 
-	tdk_u32 resize_memory(size_type nNewCap)
+	tdk_ret resize_memory(size_type nNewCap, tdk_err* pErrorCode = nullptr)
 	{
-		tdk_imemalloc* pMemAlloc = TMemAlloc::instance();
-		//TDK_ASSERT(pMemAlloc);
+		AllocatorForT* pAllocatorForT = get_allocator_for_T();
+		assert(pAllocatorForT);
     
-		size_type nReqBytes = sizeof(TElem) * nNewCap;
-		void* pMem = TDK_NULL;
+		if (0 == nNewCap)
+		{
+			return free_memory(pErrorCode);
+		}
+
+		T* pNewData = pAllocatorForT->allocate(nNewCap);
+		if (!pNewData)
+		{
+			tdk_set_error_code(pErrorCode, kTDK_BAD_ALLOC);
+			return kTDK_FATAL;
+		}
+
+		if (m_nCount)
+		{
+			assert(m_pData);
+			tdk_uninitialized_copy_n(m_pData, m_nCount, pNewData);
+			tdk_destroy(m_pData, m_pData + m_nCount);
+		}
+
 		if (m_pData)
 		{
-			if (0 == nNewCap)
-			{
-				pMemAlloc->deallocate(m_pData);
-				m_pData = TDK_NULL;
-				m_nCapacity = 0;
-				return kTDK_OK;
-			}
-
-			pMem = pMemAlloc->allocate(nReqBytes);
-			if (!pMem)
-			{
-				return kTDK_FATAL;
-			}
-
-			TElem* pMemAsData = (TElem*)pMem;
-			for (size_type i = 0; i < m_nCount; ++i)
-			{
-				TUtil::copy_construct(pMemAsData + i, m_pData[i]);
-				TUtil::destroy(&m_pData[i]);
-			}
-
-			pMemAlloc->deallocate(m_pData);
-			m_pData = pMemAsData;
-			m_nCapacity = nNewCap;
-			return kTDK_OK;
+			pAllocatorForT->deallocate(m_pData, m_nCapacity);
 		}
 
-		if (nNewCap)
-		{
-			pMem = pMemAlloc->allocate(nReqBytes);
-			if (!pMem)
-			{
-				return kTDK_FATAL;
-			}
-
-			m_pData = (TElem*)pMem;
-			m_nCapacity = nNewCap;
-			return kTDK_OK;
-		}
+		m_pData = pNewData;
+		m_nCapacity = nNewCap;
 		return kTDK_OK;
 	}
-	TElem* m_pData;
-	size_type m_nCount;
-	size_type m_nCapacity;
+
+	tdk_ret free_memory(tdk_err* pErrorCode = nullptr)
+	{
+		AllocatorForT* pAllocatorForT = get_allocator_for_T();
+		assert(pAllocatorForT);
+		
+		destroy_all(pErrorCode);
+
+		if (m_pData)
+		{
+			pAllocatorForT->deallocate(m_pData, m_nCapacity);
+			m_pData = nullptr;
+			m_nCapacity = 0;
+		}
+		
+		return kTDK_OK;
+	}
+
+	tdk_ret destroy_all(tdk_err* pErrorCode = nullptr)
+	{
+		if (m_nCount)
+		{
+			assert(m_pData);
+			tdk_destroy(m_pData, m_pData + m_nCount);
+			m_nCount = 0;
+		}
+
+		return kTDK_OK;
+	}
+
+	T* m_pData{};
+	size_type m_nCount{};
+	size_type m_nCapacity{};
 };
 #endif //TDK_DARRAY_H

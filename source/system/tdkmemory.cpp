@@ -36,7 +36,7 @@ SOFTWARE.
 -------------
  Description
 -------------
-Purpose: memory allocators.
+Purpose: memory management.
 
 ----------------------
  For developers notes
@@ -44,33 +44,29 @@ Purpose: memory allocators.
 
 */
 
-#include "tdkmemalloc.h"
-#include <stdlib.h>
+#include "system/tdkmemory.h"
+#include <cstdlib>
 
-namespace tdk
-{
-	namespace details
-	{
-		static tdk_memalloc_mf s_memalloc_mf;
-	} // eof details
-} // eof tdk
 
-tdk_imemalloc* tdk_memalloc_mf::instance()
+void* tdk_allocate_memory_aligned(tdk_size nBytes, tdk_size nAlignment)
 {
-	return &tdk::details::s_memalloc_mf;
+	if (0 == nAlignment)
+		return std::malloc(nBytes);
+#ifdef _MSC_VER
+	return _aligned_malloc(nBytes, nAlignment);
+#else
+#error "has not implemented yet"
+#endif
+	
 }
 
-void* tdk_memalloc_mf::allocate(tdk_u32 nBytes)
+void tdk_free_memory_aligned(void* p, tdk_size nAlignment)
 {
-	return malloc(nBytes);
-}
-
-void* tdk_memalloc_mf::reallocate(void* p, tdk_u32 nBytes)
-{
-	return realloc(p, nBytes);
-}
-
-void tdk_memalloc_mf::deallocate(void* p)
-{
-	free(p);
+	if (0 == nAlignment)
+		return std::free(p);
+#ifdef _MSC_VER
+	_aligned_free(p);
+#else
+#error "has not implemented yet"
+#endif
 }

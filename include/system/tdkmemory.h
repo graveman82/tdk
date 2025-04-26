@@ -36,7 +36,7 @@ SOFTWARE.
 -------------
  Description
 -------------
-Purpose: memory allocators.
+Purpose: memory management.
 
 ----------------------
  For developers notes
@@ -44,64 +44,15 @@ Purpose: memory allocators.
 
 */
 
-#ifndef TDK_MEMALLOC_H
-#define TDK_MEMALLOC_H
+#ifndef TDK_MEMORY_H
+#define TDK_MEMORY_H
 
-#include "system/tdkmemory.h"
-#include "base/tdkmemutl.h"
-
-template<typename T, tdk_size kAlign = 16>
-class tdk_allocator
-{
-public:
-    using size_type = tdk_size;
-    using difference_type = tdk_diff;
-
-    using value_type = T;
-
-    using reference = value_type&;
-    using const_reference = const value_type&;
-    using pointer = T*;
-    using const_pointer = const T*;
-
-    template<typename U>
-    struct rebind
-    {
-        using other = tdk_allocator<U, kAlign>;
-    };
-
-  
-
-    tdk_allocator() noexcept = default;
-
-    tdk_allocator(const tdk_allocator& oth) noexcept = default;
-
-    tdk_allocator& operator=(const tdk_allocator&) noexcept = default;
-
-    template<typename U>
-    tdk_allocator(const tdk_allocator<U>&) noexcept { }
-
-    ~tdk_allocator() noexcept { }
-  
-    
-
-    T* allocate(size_type n)
-    {
-        return static_cast<T*>(tdk_allocate_memory_aligned(n * sizeof(T), kAlign));
-    }
-
-    void deallocate(T* p, size_type n)
-    {
-        TDK_UNUSED(n);
-        tdk_free_memory_aligned(p, kAlign);
-    }
-};
+#include "base/tdkbaseutl.h"
 
 
+void* tdk_allocate_memory_aligned(tdk_size nBytes, tdk_size nAlignment);
+       
+void tdk_free_memory_aligned(void* p, tdk_size nAlignment);
 
-template <typename T, tdk_size kAlign>
-struct tdk_is_static_creatable<tdk_allocator<T, kAlign>> : public std::true_type
-{
 
-};
-#endif //TDK_MEMALLOC_H
+#endif //TDK_MEMORY_H
