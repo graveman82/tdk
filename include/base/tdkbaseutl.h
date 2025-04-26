@@ -36,7 +36,7 @@ SOFTWARE.
 -------------
  Description
 -------------
-Purpose: compiler-specific macro definitions.
+Purpose: base utils.
 
 ----------------------
  For developers notes
@@ -44,66 +44,30 @@ Purpose: compiler-specific macro definitions.
 
 */
 
-#ifndef TDK_BASEDEFS_H
-#define TDK_BASEDEFS_H
+#ifndef TDK_BASEUTL_H
+#define TDK_BASEUTL_H
 
+#include "base/tdkbasedefs.h"
 
-//-----------------------------------------------------------------------------
-// Compilers family detection
-
-#if defined(_MSC_VER) && !defined(TDK_MSVC)
-// Microsoft Visual C++ compiler
-#	define TDK_MSVC_VER _MSC_VER
-
-#elif defined(__GNUC__) && !defined(TDK_GNUC)
-#	define TDK_GNUC_VER \
-(__GNUC__ * 10000  + __GNUC_MINOR__ * 100  + __GNUC_PATCHLEVEL__)
-...
-/* Test for GCC > 3.2.0 */
-//#if TDK_GNUC_VER > 30200
-
-#else
-#	error "No supported compiler was found."
-
-#endif // compiler
-
-// Integers
-#include <cstdint>
-#include <cstddef>
-
-using tdk_byte = std::uint8_t;
-using tdk_size = std::size_t;
-using tdk_diff = std::ptrdiff_t;
-using tdk_u32 = std::uint32_t;
-using tdk_u16 = std::uint16_t;
-
-// Reals
-using tdk_real32 = float;
-using tdk_real64 = double;
-
-const tdk_real32 kTDK_REAL32_ZERO = 0.0f;
-const tdk_real32 kTDK_REAL32_ONE = 1.0f;
-const tdk_real32 kTDK_REAL32_HALF = 0.5f;
-const tdk_real32 kTDK_REAL32_QUARTER = 0.25f;
-
-// Errors
-enum tdk_operation_codes
+// Error processing
+inline void tdk_set_error_code(tdk_err* pErrorCode, const tdk_err val)
 {
-	kTDK_NO = 0, // fail, no, false, not found
-	kTDK_OK = 1, // success, true, yes, found
-	kTDK_ERR = 2, // unknown error or just error witout details
-	kTDK_CANCEL = 3, // operation was canceled
-	kTDK_FATAL = 4, // prrogram termination needed
-};
+	if (pErrorCode)
+		*pErrorCode = val;
+}
 
-using tdk_ret = tdk_u32;
-using tdk_err = tdk_u32;
-
-enum tdk_error_codes
+// Min-Max
+template<typename T>
+constexpr T tdk_min(const T& a, const T& b)
 {
-	kTDK_BAD_ALLOC,
-	kTDK_BAD_SIZE,
-};
+	return a <= b ? a : b;
+}
 
-#define TDK_UNUSED(x) ((void)x)
-#endif //TDK_BASEDEFS_H
+template<typename T>
+constexpr T tdk_max(const T& a, const T& b)
+{
+	return a >= b ? a : b;
+}
+
+
+#endif //TDK_BASEUTL_H

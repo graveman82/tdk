@@ -49,54 +49,78 @@ Purpose: memory utilities.
 
 
 #include "tdkbasedefs.h"
+#include <memory>
 
-
-template <typename TVal>
-class tdk_memutil_default
+template <typename T>
+struct tdk_is_static_creatable : public std::false_type
 {
-public:
-	typedef tdk_u32 size_type;
 
-	typedef void (*construct_fn)(void* p);
-	typedef void (*copy_construct_fn)(void* p, const TVal& val);
-	enum Constants
-	{
-		kMIN_CAP = 4
-	};
-
-	static size_type grow_capacity(size_type nNewCount, size_type nCap)
-	{
-		if (nNewCount > nCap)
-		{
-			size_type nNewCap = nCap;
-			if (nNewCap < kMIN_CAP)
-				nNewCap = kMIN_CAP;
-
-			while (nNewCap < nNewCount)
-			{
-				nNewCap *= 2;
-			}
-			nCap = nNewCap;
-		}
-		return nCap;
-	}
-
-	static construct_fn construct;
-
-	static copy_construct_fn copy_construct;
-
-	static void destroy(TVal* p)
-	{
-		p->~TVal();
-	}
 };
 
-template <typename TVal>
-typename tdk_memutil_default<TVal>::construct_fn 
-tdk_memutil_default<TVal>::construct = TDK_NULL;
+// construct
+template<typename NoThrowForwardIt, typename Size, typename T>
+constexpr NoThrowForwardIt tdk_uninitialized_fill_n(NoThrowForwardIt itFirst,
+	Size nCount, const T& value) noexcept
+{
+	using DestinationValueType = typename std::iterator_traits<NoThrowForwardIt>::value_type;
+	NoThrowForwardIt itCurrent = itFirst;
 
-template <typename TVal>
-typename tdk_memutil_default<TVal>::copy_construct_fn 
-tdk_memutil_default<TVal>::copy_construct = TDK_NULL;
+	for (; nCount > 0; ++itCurrent, (void) --nCount)
+	{
+		void* pDestMem = static_cast<void*>(std::addressof(*itCurrent));
+		::new (pDestMem) DestinationValueType(value);
+	}
+			
+	return itCurrent;
+}
+
+// destroy
+
+template<class T>
+constexpr void tdk_destroy_at(T* ptr) noexcept
+{
+	if constexpr (std::is_array_v<T>)
+		for (auto& elem : *ptr)
+			(tdk_destroy_at)(std::addressof(elem));
+	else
+		ptr->~T();
+}
+
+template<typename ForwardIt>
+constexpr
+void tdk_destroy(ForwardIt first, ForwardIt last) noexcept
+{
+	for (; first != last; ++first)
+		tdk_destroy_at(std::addressof(*first));
+}
+
+// copy
+template<typename InputIt, typename Size, typename NoThrowForwardIt>
+constexpr NoThrowForwardIt tdk_uninitialized_copy_n(
+	InputIt itSrcFirst, Size nSrcCount,
+	NoThrowForwardIt itDstFirst) noexcept
+{
+	using DestinationValueType = typename std::iterator_traits<NoThrowForwardIt>::value_type;
+	NoThrowForwardIt itDstCurrent = itDstFirst;
+
+	for (; nSrcCount > 0; --nSrcCount, (void)++itSrcFirst, (void) ++itDstCurrent)
+	{
+		void* pDstMem = static_cast<void*>(std::addressof(*itDstCurrent));
+		::new (pDstMem) DestinationValueType(*itSrcFirst);
+	}
+	
+	return itDstCurrent;
+}
+
+template<typename InputIt, typename OutputIt>
+OutputIt tdk_copy(InputIt itSrcFirst, InputIt itSrcLast, OutputIt itDstFirst) noexcept
+{
+	for (; itSrcFirst != itSrcLast; (void)++itSrcFirst, (void)++itDstFirst)
+		*itDstFirst = *itSrcFirst;
+
+	return itDstFirst;
+}
+
+
 
 #endif //TDK_MEMUTL_H
