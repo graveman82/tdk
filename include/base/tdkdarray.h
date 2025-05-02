@@ -112,6 +112,38 @@ public:
 		return kTDK_OK;
 	}
 
+	template< typename InputIt >
+	iterator insert(const_iterator pos, InputIt firstIt, InputIt lastIt)
+	{
+		size_type nGrowBy = std::distance(firstIt, lastIt);
+		size_type nNewCount = m_nCount + nGrowBy;
+
+		if (nNewCount > m_nCapacity)
+		{
+			size_type nNewCap = suggest_capacity(nNewCount, m_nCapacity);
+
+			tdk_ret retVal = resize_memory_for_insert(pos - begin(), nGrowBy, nNewCap, pErrorCode);
+			if (retVal != kTDK_OK)
+			{
+				return retVal;
+			}
+		}
+		else
+		{
+			make_gap(pos - begin(), nGrowBy);
+		}
+
+		tdk_uninitialized_copy_n(firstIt, nGrowBy, pos);
+		return kTDK_OK;
+	}
+
+	tdk_ret insert(const_iterator pos, const T& value)
+	{
+		const T* itSrcFirst = std::addressof(value);
+		const T* itSrcLast = itSrcFirst + 1;
+		return insert(pos, itSrcFirst, itSrcLast);
+	}
+
 	tdk_ret reserve(size_type nNewCap, tdk_err* pErrorCode = nullptr)
 	{
 		if (nNewCap <= m_nCapacity)
@@ -266,6 +298,54 @@ private:
 		{
 			assert(m_pData);
 			tdk_uninitialized_copy_n(m_pData, m_nCount, pNewData);
+			tdk_destroy(m_pData, m_pData + m_nCount);
+		}
+
+		if (m_pData)
+		{
+			pAllocatorForT->deallocate(m_pData, m_nCapacity);
+		}
+
+		m_pData = pNewData;
+		m_nCapacity = nNewCap;
+		return kTDK_OK;
+	}
+
+	void make_gap(syze_type nBeforeGap, size_type nGapSize) noexcept
+	{
+		if (nBeforeGap >= m_nCount)
+			return;
+
+		size_type nAfterGap = m_nCount - nBeforeGap;
+		tdk_uninitialized_copy_backward_n(m_pData + m_nCount, nAfterGap,
+			m_pData + m_nCount + nGapSize);
+
+		tdk_destroy(m_pData + nBeforeGap, m_pData + m_nCount);
+	}
+
+	tdk_ret resize_memory_for_insert(syze_type nBeforeGap, size_type nGapSize,
+		size_type nNewCap, tdk_err* pErrorCode = nullptr)
+	{
+		AllocatorForT* pAllocatorForT = get_allocator_for_T();
+		assert(pAllocatorForT);
+
+		assert(0 != nNewCap)
+
+		T* pNewData = pAllocatorForT->allocate(nNewCap);
+		if (!pNewData)
+		{
+			tdk_set_error_code(pErrorCode, kTDK_BAD_ALLOC);
+			return kTDK_FATAL;
+		}
+
+		if (m_nCount)
+		{
+			assert(m_pData);
+			tdk_uninitialized_copy_n(m_pData, nBeforeGap, pNewData);
+			size_type nAfterGap = m_nCount - nBeforeGap;
+			size_type nDestPos = nBeforeGap + nGapSize;
+			tdk_uninitialized_copy_n(m_pData + nBeforeGap, nAfterGap, 
+				pNewData + nDestPos);
 			tdk_destroy(m_pData, m_pData + m_nCount);
 		}
 

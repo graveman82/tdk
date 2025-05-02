@@ -121,6 +121,20 @@ OutputIt tdk_copy(InputIt itSrcFirst, InputIt itSrcLast, OutputIt itDstFirst) no
 	return itDstFirst;
 }
 
+template<typename BidirIt, typename Size, typename NoThrowBidirIt>
+NoThrowBidirIt tdk_uninitialized_copy_backward_n(BidirIt itSrcLast, Size nSrcCount,
+	NoThrowBidirIt itDstLast) noexcept
+{
+	using DestinationValueType = typename std::iterator_traits<NoThrowBidirIt>::value_type;
+	NoThrowBidirIt itDstCurrent = itDstLast;
+	
+	for (; nSrcCount > 0; --nSrcCount)
+	{
+		void* pDstMem = static_cast<void*>(std::addressof(*(--itDstCurrent)));
+		::new (pDstMem) DestinationValueType(*(--itSrcLast));
+	}
 
+	return itDstCurrent;
+}
 
 #endif //TDK_MEMUTL_H
