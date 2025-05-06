@@ -57,7 +57,8 @@ Purpose: dynamic array.
 template <typename T, typename Allocator = tdk_allocator<T>>
 class tdk_darray
 {
-	using AllocatorForT = typename std::allocator_traits<Allocator>::template rebind_alloc<T>;
+	using AllocatorForT = typename 
+		  std::allocator_traits<Allocator>::template rebind_alloc<T>;
 	using AllocatorTraitsForT = std::allocator_traits<AllocatorForT>;
 public:
 	using size_type = tdk_size;
@@ -69,7 +70,8 @@ public:
 	using reference = value_type&;
 	using const_reference = const value_type&;
 	using pointer = typename std::allocator_traits<Allocator>::pointer;
-	using const_pointer = typename std::allocator_traits<Allocator>::const_pointer;
+	using const_pointer = typename 
+		  std::allocator_traits<Allocator>::const_pointer;
 	using iterator = pointer;
 	using const_iterator = const_pointer;
 	using reverse_iterator = std::reverse_iterator<iterator>;
@@ -113,7 +115,8 @@ public:
 	}
 
 	template< typename InputIt >
-	iterator insert(const_iterator pos, InputIt firstIt, InputIt lastIt)
+	iterator insert(const_iterator pos, InputIt firstIt, InputIt lastIt, 
+			 tdk_err* pErrorCode = nullptr)
 	{
 		size_type nGrowBy = std::distance(firstIt, lastIt);
 		size_type nNewCount = m_nCount + nGrowBy;
@@ -122,7 +125,8 @@ public:
 		{
 			size_type nNewCap = suggest_capacity(nNewCount, m_nCapacity);
 
-			tdk_ret retVal = resize_memory_for_insert(pos - begin(), nGrowBy, nNewCap, pErrorCode);
+			tdk_ret retVal = resize_memory_for_insert(pos - begin(), nGrowBy, 
+					nNewCap, pErrorCode);
 			if (retVal != kTDK_OK)
 			{
 				return retVal;
@@ -311,7 +315,7 @@ private:
 		return kTDK_OK;
 	}
 
-	void make_gap(syze_type nBeforeGap, size_type nGapSize) noexcept
+	void make_gap(size_type nBeforeGap, size_type nGapSize) noexcept
 	{
 		if (nBeforeGap >= m_nCount)
 			return;
@@ -323,13 +327,13 @@ private:
 		tdk_destroy(m_pData + nBeforeGap, m_pData + m_nCount);
 	}
 
-	tdk_ret resize_memory_for_insert(syze_type nBeforeGap, size_type nGapSize,
+	tdk_ret resize_memory_for_insert(size_type nBeforeGap, size_type nGapSize,
 		size_type nNewCap, tdk_err* pErrorCode = nullptr)
 	{
 		AllocatorForT* pAllocatorForT = get_allocator_for_T();
 		assert(pAllocatorForT);
 
-		assert(0 != nNewCap)
+		assert(0 != nNewCap);
 
 		T* pNewData = pAllocatorForT->allocate(nNewCap);
 		if (!pNewData)

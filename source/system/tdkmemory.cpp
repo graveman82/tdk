@@ -54,6 +54,8 @@ void* tdk_allocate_memory_aligned(tdk_size nBytes, tdk_size nAlignment)
 		return std::malloc(nBytes);
 #ifdef _MSC_VER
 	return _aligned_malloc(nBytes, nAlignment);
+#elif defined __GNUC__
+	return malloc(nBytes);
 #else
 #error "has not implemented yet"
 #endif
@@ -66,6 +68,8 @@ void tdk_free_memory_aligned(void* p, tdk_size nAlignment)
 		return std::free(p);
 #ifdef _MSC_VER
 	_aligned_free(p);
+#elif defined __GNUC__
+	free(p);
 #else
 #error "has not implemented yet"
 #endif

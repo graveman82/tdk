@@ -57,8 +57,8 @@ Purpose: compiler-specific macro definitions.
 
 #elif defined(__GNUC__) && !defined(TDK_GNUC)
 #	define TDK_GNUC_VER \
-(__GNUC__ * 10000  + __GNUC_MINOR__ * 100  + __GNUC_PATCHLEVEL__)
-...
+	(__GNUC__ * 10000  + __GNUC_MINOR__ * 100  + __GNUC_PATCHLEVEL__)
+
 /* Test for GCC > 3.2.0 */
 //#if TDK_GNUC_VER > 30200
 
@@ -66,6 +66,25 @@ Purpose: compiler-specific macro definitions.
 #	error "No supported compiler was found."
 
 #endif // compiler
+
+//-----------------------------------------------------------------------------
+// C++ standard detection
+
+#if __cplusplus >= 202002L
+#define TDK_CPP20
+#define TDK_CPP17
+#define TDK_CPP17
+#define TDK_CPP14
+#define TDK_CPP11
+#define TDK_CPP03
+#endif
+
+#if __cplusplus >= 201703L
+#define TDK_CPP17
+#define TDK_CPP14
+#define TDK_CPP11
+#define TDK_CPP03
+#endif
 
 // Integers
 #include <cstdint>

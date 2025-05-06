@@ -48,7 +48,7 @@ Purpose: memory utilities.
 #define TDK_MEMUTL_H
 
 
-#include "tdkbasedefs.h"
+#include "base/tdkbasedefs.h"
 #include <memory>
 
 template <typename T>
